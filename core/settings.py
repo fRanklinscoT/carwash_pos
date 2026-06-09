@@ -100,7 +100,7 @@ REST_FRAMEWORK = {
 }
 
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFTETIME': timedelta(days=7), # Long lifespan keeps tablets logged in on-site
+    'ACCESS_TOKEN_LIFETIME': timedelta(days=7), # Long lifespan keeps tablets logged in on-site
     'REFRESH_TOKEN_LIFETIME': timedelta(days=30),
     'ROTATE_REFRESH_TOKENS': True,
     'BLACKLIST_AFTER_ROTATION': True,
