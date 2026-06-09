@@ -37,14 +37,12 @@ DEBUG = os.environ.get('DEBUG', 'True') == 'True'
 ALLOWED_HOSTS = [
     'localhost',
     '127.0.0.1',
-    'carwash-pos.onrender.com',
+    'carwash-pos-efb4.onrender.com',
 ]
 
 CSRF_TRUSTED_ORIGINS = [
-    'https://carwash-pos.onrender.com', 
+    'carwash-pos-efb4.onrender.com',
 ]
-
-DEBUG = os.environ.get('DEBUG', 'True') == 'True'
 
 
 # Application definition
