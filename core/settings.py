@@ -34,7 +34,15 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'
 SECRET_KEY = os.environ.get('SECRET_KEY', 'fallback-unsafe-key-for-dev')
 DEBUG = os.environ.get('DEBUG', 'True') == 'True'
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = [
+    'localhost',
+    '127.0.0.1',
+    'carwash-pos.onrender.com',
+]
+
+CSRF_TRUSTED_ORIGINS = [
+    'https://carwash-pos.onrender.com', 
+]
 
 DEBUG = os.environ.get('DEBUG', 'True') == 'True'
 
