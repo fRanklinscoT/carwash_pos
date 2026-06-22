@@ -1,8 +1,5 @@
 from django.contrib import admin
-
-# Register your models here.
-from django.contrib import admin
-from .models import Tenant, OperatorProfile
+from .models import Tenant, OperatorProfile, VehicleType, WashService
 
 @admin.register(Tenant)
 class TenantAdmin(admin.ModelAdmin):
@@ -24,3 +21,18 @@ class OperatorProfileAdmin(admin.ModelAdmin):
     list_display = ('user', 'tenant', 'passcode_pin', 'is_active')
     list_filter = ('tenant', 'is_active')
     search_fields = ('user__username', 'user__first_name', 'tenant__name', 'passcode_pin')
+
+@admin.register(VehicleType)
+class VehicleTypeAdmin(admin.ModelAdmin):
+    list_display = ('name', 'code', 'base_price_modifier', 'is_active')
+    list_filter = ('is_active',)
+    search_fields = ('name', 'code')
+    list_editable = ('is_active', 'base_price_modifier')
+
+@admin.register(WashService)
+class WashServiceAdmin(admin.ModelAdmin):
+    # What the admin sees in the table view
+    list_display = ('name', 'sub_name', 'base_price', 'is_active')
+    list_filter = ('is_active',)
+    search_fields = ('name', 'code', 'features')
+    list_editable = ('base_price', 'is_active')

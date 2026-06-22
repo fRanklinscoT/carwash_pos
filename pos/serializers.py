@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import WashService, Shift, WashOrder, CashDeduction, Tenant, OperatorProfile, SubscriptionTier
+from .models import WashService, VehicleType, Shift, WashOrder, CashDeduction, Tenant, OperatorProfile, SubscriptionTier
 from rest_framework.validators import UniqueValidator
 from django.contrib.auth.models import User
 from django.db import transaction
@@ -10,8 +10,11 @@ from django.utils.crypto import get_random_string
 class WashServiceSerializer(serializers.ModelSerializer):
     class Meta:
         model = WashService
-        fields = ['id', 'name', 'price', 'description', 'is_active']
-
+        fields = ['id', 'code', 'name', 'sub_name', 'base_price', 'features', 'feature_list', 'is_active']
+class VehicleTypeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = VehicleType
+        fields = ['id', 'code', 'name', 'base_price_modifier', 'is_active']
 class ShiftSerializer(serializers.ModelSerializer):
     class Meta:
         model = Shift

@@ -41,7 +41,7 @@ ALLOWED_HOSTS = [
 ]
 
 CSRF_TRUSTED_ORIGINS = [
-    'carwash-pos-efb4.onrender.com',
+    'https://carwash-pos-efb4.onrender.com',
 ]
 
 

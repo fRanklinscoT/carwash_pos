@@ -8,16 +8,29 @@ from django.core.exceptions import ValidationError
 # Create your models here.
 
 class WashService(models.Model):
-    """The Catalog: Defines what you sell and for how much."""
-    name = models.CharField(max_length=100)
-    price = models.DecimalField(max_digits=8, decimal_places=2) 
-    description = models.TextField(blank=True, null=True)
+    """The Catalog: Defines what you sell, for how much, and what's included."""
     
-    # Soft delete: Hides the service from Flutter without breaking old receipts
-    is_active = models.BooleanField(default=True) 
+    code = models.CharField(max_length=50, unique=True, default="p_custom", help_text="Unique identifier (e.g., p_valet)")
+    name = models.CharField(max_length=100, help_text="Primary package name (e.g., Normal Wash & Go)")
+    sub_name = models.CharField(max_length=100, blank=True, help_text="Secondary label (e.g., Standard Wash)")
+    base_price = models.DecimalField(max_digits=8, decimal_places=2, help_text="Starting price in ZAR",default=0.00)
+    features = models.TextField(blank=True, help_text="Comma-separated list of included features")
+
+    is_active = models.BooleanField(default=True, help_text="Uncheck to hide this package from the tablets")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['base_price']
+        verbose_name = "Wash Service Package"
+        verbose_name_plural = "Wash Service Packages"
 
     def __str__(self):
-        return f"{self.name} - R{self.price}"
+        return f"{self.name} - R{self.base_price}"
+    def feature_list(self):
+        if not self.features:
+            return []
+        return [f.strip() for f in self.features.split(',') if f.strip()]
 
 
 class Shift(models.Model):
@@ -55,11 +68,7 @@ class WashOrder(models.Model):
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, 
         blank=True, null=True, related_name='voided_orders'
     )
-    
-    # OFFLINE SYNC MAGIC: 
     created_at = models.DateTimeField(default=timezone.now) 
-    
-    # Track when the server actually received the offline payload
     synced_at = models.DateTimeField(auto_now_add=True) 
 
     def __str__(self):
@@ -69,9 +78,7 @@ class CashDeduction(models.Model):
     """Petty Cash: Tracks money taken out of the physical till (e.g., lunch, supplies)."""
     shift = models.ForeignKey(Shift, on_delete=models.PROTECT, related_name='deductions')
     amount = models.DecimalField(max_digits=8, decimal_places=2)
-    reason = models.CharField(max_length=255) # e.g., "Lunch money for attendants", "Cleaning supplies"
-    
-    # Offline sync tracking
+    reason = models.CharField(max_length=255)
     created_at = models.DateTimeField(default=timezone.now)
     synced_at = models.DateTimeField(auto_now_add=True)
 
@@ -151,3 +158,27 @@ class OperatorProfile(models.Model):
 
     def __str__(self):
         return f"[{self.tenant.name}] {self.user.first_name or self.user.username}"
+
+class VehicleType(models.Model):
+    code = models.CharField(max_length=50, unique=True, help_text="Unique identifier (e.g., v_sedan)")
+    name = models.CharField(max_length=100, help_text="Display name on the POS tablet")
+    base_price_modifier = models.DecimalField(
+        max_digits=6,
+        decimal_places=2,
+        default=0.00,
+        help_text="Extra charge added to base wash price (ZAR)"
+    )
+    is_active = models.BooleanField(
+        default=True,
+        help_text="Uncheck this to instantly hide this vehicle type from all tablets"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['base_price_modifier'] # Automatically sorts from smallest to largest vehicle
+        verbose_name = "Vehicle Type"
+        verbose_name_plural = "Vehicle Types"
+
+    def __str__(self):
+        return f"{self.name} (+R{self.base_price_modifier})"

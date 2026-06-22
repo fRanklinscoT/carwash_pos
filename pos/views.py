@@ -5,27 +5,56 @@ from rest_framework.permissions import AllowAny
 from rest_framework.views import APIView
 from django.utils import timezone
 from django.db import transaction
-from .models import WashService, Shift, WashOrder, CashDeduction, OperatorProfile
-from .serializers import WashServiceSerializer, ShiftSerializer, OperatorCreationSerializer,TenantOnboardingSerializer , WashOrderSerializer, CashDeductionSerializer, OperatorProfileSerializer, TerminalAuthRequestSerializer
+
+# IMPORT: Models,Serializers,Controllers
+from .models import VehicleType, WashService, Shift, WashOrder, CashDeduction, OperatorProfile
+from .serializers import VehicleTypeSerializer, WashServiceSerializer, ShiftSerializer, OperatorCreationSerializer,TenantOnboardingSerializer , WashOrderSerializer, CashDeductionSerializer, OperatorProfileSerializer, TerminalAuthRequestSerializer
 from .permissions import IsPlatformSuperAdmin
 
 
 class IsAdminOrReadOnly(permissions.BasePermission):
-    """Custom permission: Attendants can only read, Admins can do full CRUD."""
+    """Custom permission: Attendants can only read, Admins (Employers) can do full CRUD."""
     def has_permission(self, request, view):
         if request.method in permissions.SAFE_METHODS:
             return True
         return request.user.is_staff
 
+
+# =========================================================
+#   CATALOG MANAGEMENT (Vehicles & Services)
+# =========================================================
+
+class VehicleTypeViewSet(viewsets.ModelViewSet):
+    """
+    Handles vehicle scaling multipliers.
+    Operators see active types; Employer Admins can edit/add/toggle them.
+    """
+    serializer_class = VehicleTypeSerializer
+    permission_classes = [permissions.IsAuthenticated, IsAdminOrReadOnly]
+
+    def get_queryset(self):
+        if self.request.user.is_staff:
+            return VehicleType.objects.all().order_by('base_price_modifier')
+        return VehicleType.objects.filter(is_active=True).order_by('base_price_modifier')
+
+
 class WashServiceViewSet(viewsets.ModelViewSet):
     """
     Handles the service catalog.
-    Attendants can view active services; Admins can manage them.
+    Operators see active services; Employer Admins can manage them.
     """
-    queryset = WashService.objects.filter(is_active=True)
     serializer_class = WashServiceSerializer
     permission_classes = [permissions.IsAuthenticated, IsAdminOrReadOnly]
 
+    def get_queryset(self):
+        if self.request.user.is_staff:
+            return WashService.objects.all().order_by('base_price')
+        return WashService.objects.filter(is_active=True).order_by('base_price')
+
+
+# =========================================================
+#   SHIFT & TRANSACTION LEDGER
+# =========================================================
 
 class ShiftViewSet(viewsets.ModelViewSet):
     """
@@ -42,7 +71,6 @@ class ShiftViewSet(viewsets.ModelViewSet):
         return Shift.objects.filter(attendant=self.request.user).order_by('-opened_at')
 
     def perform_create(self, serializer):
-        # Check if user already has an active open shift
         active_shift = Shift.objects.filter(attendant=self.request.user, is_closed=False).first()
         if active_shift:
             return Response(
@@ -111,7 +139,7 @@ class WashOrderViewSet(viewsets.ModelViewSet):
         if not orders_data:
             return Response({"error": "No orders provided for sync."}, status=status.HTTP_400_BAD_REQUEST)
 
-        with transaction.atomic():  # All sync or none sync to guarantee database consistency
+        with transaction.atomic():
             for order_data in orders_data:
                 service_ids = order_data.get('services', [])
                 services = WashService.objects.filter(id__in=service_ids)
@@ -138,6 +166,11 @@ class CashDeductionViewSet(viewsets.ModelViewSet):
             return CashDeduction.objects.all().order_by('-created_at')
         return CashDeduction.objects.filter(shift__attendant=self.request.user).order_by('-created_at')
 
+
+# =========================================================
+#   AUTHENTICATION & ONBOARDING
+# =========================================================
+
 class TerminalPinAuthView(APIView):
     """
     Endpoint for POS tablet terminals. Checks the 6-digit passcode pin 
@@ -150,8 +183,6 @@ class TerminalPinAuthView(APIView):
         
         if serializer.is_valid():
             pin = serializer.validated_data['passcode_pin']
-            
-            # Lookup operator profile tied to this exact passcode sequence
             try:
                 operator = OperatorProfile.objects.select_related('user', 'tenant').get(
                     passcode_pin=pin, 
@@ -163,8 +194,6 @@ class TerminalPinAuthView(APIView):
                     {"detail": "Invalid terminal authentication PIN sequence."}, 
                     status=status.HTTP_401_UNAUTHORIZED
                 )
-
-            # Execution block success payload mapping out identity tokens for Flutter
             profile_data = OperatorProfileSerializer(operator).data
             
             return Response({
@@ -183,7 +212,7 @@ class PlatformOnboardingView(APIView):
     Platform Superadmin Controller.
     Provisions a new business Tenant alongside their main Employer Admin account.
     """
-    permission_classes = [IsPlatformSuperAdmin] # Strictly locked to your superuser credentials
+    permission_classes = [IsPlatformSuperAdmin]
 
     def post(self, request, format=None):
         serializer = TenantOnboardingSerializer(data=request.data)
@@ -209,7 +238,6 @@ class OperatorProfileViewSet(viewsets.ModelViewSet):
         return OperatorProfileSerializer
 
     def get_queryset(self):
-        # Safety check: ensure staff/employers only look at their own company's workers
         if hasattr(self.request.user, 'owned_tenant'):
             return OperatorProfile.objects.filter(tenant=self.request.user.owned_tenant).order_by('-id')
         return OperatorProfile.objects.none()
